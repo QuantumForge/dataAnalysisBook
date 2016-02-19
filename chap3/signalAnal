@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+
+import numpy as np
+import matplotlib.pyplot as plt
+#from scipy.stats import uniform
+from scipy.stats import poisson
+
+import sys
+
+#np.random.seed(314159)
+
+def f(x, A, B):
+    #A  = 1.
+    #B  = 2.
+    x0 = 0.
+    w  = 5./(2.*np.sqrt(2*np.log(2.)))
+
+    # choose n0 so the max counts is 100
+    n0 = 100./(A + B)
+
+    #return n0*(A*norm.pdf(x, loc = x0, scale = w) + B)
+    return n0*(A*np.exp(-(x - x0)**2/2./w**2) + B)
+
+def L(n, k, A, B):
+    """Computes the log of the posterior probability.
+    n: observed counts
+    k: signal bin
+    A: amplitude of signal
+    B: background of signal
+
+    returns the log of posterior probability."""
+
+    if len(n) != len(k):
+        print >>sys.stderr, 'array sizes don\'t match'
+        return
+
+    z = 0.
+    for i in len(n):
+        z += n[i]*np.log(f(k[i], A, B)) - f(k[i], A, B)
+
+    return z
+
+x = np.arange(-15., 15., 0.1)
+p = f(x, 1., 2.)
+
+fig1 = plt.figure()
+plt.plot(x, p)
+plt.ylim([0., 105.])
+plt.suptitle('source distribution')
+
+
+# sample the source distribution
+#h = []
+#while True:
+#    if len(h) >= 1000:
+#        break
+#    hx = uniform.rvs(loc = -15., scale = 30.)
+#    hy = uniform.rvs(loc = 0., scale = 101.)
+#    if hy <= f(hx):
+#        h.append(hx)
+
+h = []
+b = []
+d = []
+for i in range(-14, 15):
+    c = poisson.rvs(f(i, 1., 2.))
+    b.append(i)
+    d.append(c)
+    # make a list appropriate for histogramming
+    for j in range(c):
+        h.append(i)
+
+fig2 = plt.figure()
+ax221 = plt.subplot(221)
+plt.hist(h, bins = 29, range = (-14.5, 14.5))
+
+plt.show()
+
+
+
+
+

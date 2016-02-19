@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import binom
+from scipy.stats import norm
+from scipy.stats import uniform
+from scipy.integrate import simps
+import sys
+
+def getPosterior(nTrial, nHead, prior = 'flat'):
+    # h = bias weight, h = 0 coin never flips heads, h = 1 coin always
+    # flips heads, h = 0.5 coin is fair
+    h = np.linspace(0., 1., 1000)
+    prior_h = 1.
+    if prior == 'fair':
+        prior_h = norm.pdf(h, 0.5, 0.05)
+    elif prior == 'biased':
+        h = np.linspace(0.001, 0.999, 1000)
+        prior_h = (0.5 - h)/(h - 1.) + (0.5 - h)/h
+    p_h = binom.pmf(nHead, nTrial, h)*prior_h
+    # normalize the probability
+    normf = simps(p_h, h)
+    if normf > 0.:
+        p_h /= normf
+
+    return h, p_h
+
+np.random.seed(2)
+
+# values of n to plot
+l = (0, 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096)
+fig = plt.figure(figsize = (800/96, 1080/96), dpi = 96)
+
+# default heads bias weighting. coin is fair
+biasWeight = 0.5
+if len(sys.argv) > 1:
+    biasWeight = float(sys.argv[1])
+if biasWeight < 0. or biasWeight > 1.:
+    print >>sys.stderr, argv[0], ': invalid bias weight'
+    sys.exit(1)
+
+print 'heads bias weight:', biasWeight
+
+nH = 0
+plotNum = 0
+print '{:>6} {:>6} {:>6} {:>6}'.format('nTrial', 'nHead', 'mean', 'sigma')
+for n in range(4097):
+
+    # generate flips for biased coin
+    x1 = uniform.rvs()
+    if x1 < biasWeight and n > 0:
+        nH += 1
+
+    if n in l:
+        mean = 0.
+        sigma = 0.
+        if n > 0:
+            mean = float(nH)/n
+            sigma = math.sqrt(mean*(1.-mean)/n)
+        print '{:6d} {:6d} {:6.3f} {:6.3f}'.format(n, nH, mean, sigma)
+        plotNum += 1
+        ax = fig.add_subplot(5, 3, plotNum)
+
+        h, p_h = getPosterior(n, nH, prior = 'flat')
+        plt.plot(h, p_h)
+        max1 = np.amax(p_h)
+
+        h, p_h = getPosterior(n, nH, prior = 'fair')
+        plt.plot(h, p_h)
+        max2 = np.amax(p_h)
+
+        h, p_h = getPosterior(n, nH, prior = 'biased')
+        plt.plot(h, p_h)
+
+        m = 1.
+        if max1 > max2:
+            m = max1*1.10
+        else:
+            m = max2*1.10
+
+        plt.ylim(0., m)
+
+        # show the number of flips and number of heads
+        plt.text(0.05, 0.80, '{0}, {1}'.format(n, nH), transform = ax.transAxes)
+        ax.grid()
+
+
+plt.savefig('coinflip.pdf')
+plt.show()

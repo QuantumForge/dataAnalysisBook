@@ -1,0 +1,135 @@
+#!/usr/bin/env python
+
+import sys
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.optimize
+import scipy.integrate
+
+def L(alpha, beta, x):
+    sum = 0.
+    for xx in x:
+        sum += -np.log(beta**2 + (xx - alpha)**2)
+
+    return sum
+
+def dLdAlpha(alpha, beta, x):
+    s = 0.
+    for xx in x:
+        s += (xx - alpha)/(beta**2 + (xx - alpha)**2)
+    return 2.*s
+
+def p(alpha, beta, x, lshift):
+    return np.exp(L(alpha, beta, x) - lshift)
+
+# lighthouse coordinates (in meters)
+lhX, lhY = (-5250., 1000.)
+
+# detectors are uniformly spaced on the shoreline (y = 0) every 100 m
+
+#xHit = []
+xCentHit = []
+
+# beam width is 1 arc second (in degrees)
+beamWidth = 1./3600.
+
+nSample = 0
+if len(sys.argv) > 1:
+    nSample = int(sys.argv[1])
+if nSample < 2:
+    print >>sys.stderr, 'usage:', sys.argv[0], 'NSAMPLE'
+    sys.exit(0)
+print 'nSample:', nSample
+
+# generate flashes of light uniformly random in emission angle theta
+# (relative to the lighthouse as origin)
+n = 0
+# seed the random number generator
+np.random.seed(10)
+while True:
+    theta = np.random.uniform(-89., 89.)
+
+    # check to see if the flash is seen by a detector
+
+    # find the x location of the central ray
+    x = lhY*np.tan(theta*math.pi/180.) + lhX
+    xCentHit.append(x)
+    # find the x location of beam edges
+    #xHi = lhY*np.tan((theta + beamWidth/2.)*math.pi/180.) + lhX
+    #xLo = lhY*np.tan((theta - beamWidth/2.)*math.pi/180.) + lhX
+
+    #xHiQ= int(xHi)/100
+    #xLoQ= int(xLo)/100
+
+
+    #if xHiQ - xLoQ == 1:
+    #    xHit.append(xHiQ*100.)
+    #elif xHiQ - xLoQ > 1:
+    #    print >>sys.stderr, "theta, xHi, xLo", theta, xHi, xLo
+
+    #if (len(xCentHit) >= 1000):
+    #    break
+
+    n += 1
+    if (n >= nSample):
+        break
+
+fig1 = plt.figure()
+ax1 = fig1.add_subplot(411)
+n, bins, patches = plt.hist(xCentHit, bins=100, range=(-20000., 20000.))
+ax1.grid(True)
+#ax1.set_yscale('log', nonposy='clip')
+#ax1.set_ylim(1., 1.e6)
+ax1.set_xlim(-20000., 20000.)
+ax1.set_title('detector hits')
+ax1.set_xlabel('x (m)')
+ax1.set_ylabel('N')
+
+v_alpha = np.arange(-20000., 20000., 1.)
+v_l = []
+v_dldalpha = []
+v_p = []
+for a in v_alpha:
+    l = L(a, lhY, xCentHit)
+    dldalpha = dLdAlpha(a, lhY, xCentHit)
+    v_l.append(l)
+    v_dldalpha.append(dldalpha)
+
+lmax = np.amax(v_l)
+v_l = [x - lmax for x in v_l]
+v_p = np.exp(v_l)
+# get the normalization for p(alpha)
+z = scipy.integrate.quad(p, -20000., 20000., args = (lhY, xCentHit, lmax))
+print z
+v_p /= z[0]
+
+
+# find the root of dl/dx
+#print 'root of dL/d(alpha)', \
+#        scipy.optimize.brentq(dLdAlpha, -6000., 0., args = (lhY, xCentHit))
+print '<x>', np.mean(xCentHit), '+/-', np.std(xCentHit)
+
+
+
+ax2 = fig1.add_subplot(412)
+ax2.grid(True)
+#ax2.set_title('ln(p)')
+ax2.set_xlabel('alpha (m)')
+ax2.set_ylabel('ln(p)')
+plt.plot(v_alpha, v_l)
+
+ax3 = fig1.add_subplot(413)
+ax3.grid(True)
+ax3.set_xlabel('alpha (m)')
+ax3.set_ylabel('p(alpha|data)')
+plt.plot(v_alpha, v_p)
+
+ax4 = fig1.add_subplot(414)
+ax4.grid(True)
+#ax4.set_title('dl/dalpha')
+ax4.set_xlabel('alpha (m)')
+ax4.set_ylabel('dl/dalpha')
+plt.plot(v_alpha, v_dldalpha)
+
+plt.show()
