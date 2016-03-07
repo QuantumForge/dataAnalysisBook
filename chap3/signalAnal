@@ -55,7 +55,7 @@ p = f(x, n0 = sourceN0, A = sourceA, B = sourceB)
 
 fig1 = plt.figure()
 plt.plot(x, p)
-plt.ylim([0., 105.])
+plt.ylim(ymin = 0.)
 plt.suptitle('source distribution')
 
 
@@ -85,11 +85,14 @@ for i in range(-15, 16):
 fig2 = plt.figure()
 ax221 = plt.subplot(221)
 plt.hist(h, bins = 31, range = (-15.5, 15.5))
+plt.xlabel('signal bin')
+plt.ylabel('counts')
+plt.title('experimental distribution')
 ax221.set_xlim(-15.5, 15.5)
 
 # compute the log of the posterior for a range of possible values for A and B
-v_a = np.arange(0.01, 3., 0.1)
-v_b = np.arange(0.01, 3., 0.1)
+v_a = np.arange(0.01, 3., 0.01)
+v_b = np.arange(0.01, 3., 0.01)
 #v_l = []
 #for a in v_a:
 #    v_l_row = []
@@ -106,6 +109,9 @@ v_l = L(vCounts, vBin, sourceN0, X, Y)
 v_l -= np.amax(v_l)
 
 cf = plt.contourf(X, Y, np.exp(v_l))
+plt.xlabel('A')
+plt.ylabel('B')
+plt.title('posterior probability')
 plt.colorbar(cf, shrink = 0.8, extend = 'both')
 
 
