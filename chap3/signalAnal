@@ -9,22 +9,26 @@ import sys
 
 #np.random.seed(314159)
 
-def f(x, A, B):
-    #A  = 1.
-    #B  = 2.
-    x0 = 0.
-    w  = 5./(2.*np.sqrt(2*np.log(2.)))
+def f(x, n0 = 33., A = 1., B = 2.):
+    """source distribution of a gaussian on a flat background.
+    x: distribution variable where signal is measured
+    n0: scale parameter (simulates collection duration)
+    A: amplitude of the gaussian
+    B: amplitude of the background
 
-    # choose n0 so the max counts is 100
-    n0 = 100./(A + B)
+    returns the signal measured at x."""
+    x0 = 0.   # mean of the gaussian
+    fwhm = 5. # full width at half-max of the gaussian
+    w  = fwhm/(2.*np.sqrt(2*np.log(2.)))
 
-    #return n0*(A*norm.pdf(x, loc = x0, scale = w) + B)
+
     return n0*(A*np.exp(-(x - x0)**2/2./w**2) + B)
 
-def L(n, k, A, B):
+def L(n, k, n0, A, B):
     """Computes the log of the posterior probability.
     n: observed counts
     k: signal bin
+    n0: scale parameter of source function
     A: amplitude of signal
     B: background of signal
 
@@ -35,13 +39,19 @@ def L(n, k, A, B):
         return
 
     z = 0.
-    for i in len(n):
-        z += n[i]*np.log(f(k[i], A, B)) - f(k[i], A, B)
+    for i in range(len(n)):
+        z += n[i]*np.log(f(k[i], n0, A, B)) - f(k[i], n0, A, B)
 
     return z
 
+# draw the input source distribution
 x = np.arange(-15., 15., 0.1)
-p = f(x, 1., 2.)
+# source distribution will use A = 1, B = 2
+sourceA  = 1.
+sourceB  = 2.
+# choose n0 so the max counts is 100
+sourceN0 = 100./(sourceA + sourceB)
+p = f(x, n0 = sourceN0, A = sourceA, B = sourceB)
 
 fig1 = plt.figure()
 plt.plot(x, p)
@@ -59,20 +69,45 @@ plt.suptitle('source distribution')
 #    if hy <= f(hx):
 #        h.append(hx)
 
+# use a poisson random to simulate measurement at each point. the expected
+# number of 
 h = []
-b = []
-d = []
-for i in range(-14, 15):
-    c = poisson.rvs(f(i, 1., 2.))
-    b.append(i)
-    d.append(c)
+vBin = []  # array of signal bins measured
+vCounts = []  # array of signal counts observed
+for i in range(-15, 16):
+    counts = poisson.rvs(f(i, sourceN0, sourceA, sourceB))
+    vBin.append(i)
+    vCounts.append(counts)
     # make a list appropriate for histogramming
-    for j in range(c):
+    for j in range(counts):
         h.append(i)
 
 fig2 = plt.figure()
 ax221 = plt.subplot(221)
-plt.hist(h, bins = 29, range = (-14.5, 14.5))
+plt.hist(h, bins = 31, range = (-15.5, 15.5))
+ax221.set_xlim(-15.5, 15.5)
+
+# compute the log of the posterior for a range of possible values for A and B
+v_a = np.arange(0.01, 3., 0.1)
+v_b = np.arange(0.01, 3., 0.1)
+#v_l = []
+#for a in v_a:
+#    v_l_row = []
+#    for b in v_b:
+#        v_l_row.append(L(vCounts, vBin, a, b))
+#    v_l.append(v_l_row)
+
+ax222 = plt.subplot(222)
+X, Y = np.meshgrid(v_a, v_b)
+v_l = L(vCounts, vBin, sourceN0, X, Y)
+
+# rescale log_p otherwise we get overflows when converting back to the posterior
+# probability
+v_l -= np.amax(v_l)
+
+cf = plt.contourf(X, Y, np.exp(v_l))
+plt.colorbar(cf, shrink = 0.8, extend = 'both')
+
 
 plt.show()
 
